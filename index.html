@@ -1,0 +1,322 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Captain Cyber's Cyber Adventure</title>
+<style>
+body {
+  margin: 0;
+  font-family: "Comic Sans MS", "Comic Neue", sans-serif;
+  background: linear-gradient(#e0f2fe, #bae6fd);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+#points {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #1e3a8a;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+#level {
+  position: fixed;
+  top: 60px;
+  right: 10px;
+  background: #0ea5e9;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.container {
+  width: 90%;
+  max-width: 600px;
+  margin-top: 100px;
+}
+
+.card {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.easy { border: 4px solid #60a5fa; }
+.medium { border: 4px solid #facc15; }
+.hard { border: 4px solid #f87171; }
+
+.captain {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.avatar {
+  font-size: 40px;
+  margin-right: 10px;
+}
+
+.speech {
+  background: #e0f2fe;
+  padding: 10px;
+  border-radius: 15px;
+  flex: 1;
+}
+
+h1, h2 {
+  text-align: center;
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  margin: 8px 0;
+  border: none;
+  border-radius: 15px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.choice { background: #22c55e; color: white; }
+.next { background: #3b82f6; color: white; }
+.play-again { background: #f97316; color: white; }
+
+.feedback {
+  margin-top: 15px;
+  font-size: 18px;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+#visitors {
+  margin: 20px;
+  font-size: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+td, th {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+}
+
+.clear-btn {
+  font-size: 12px;
+  margin-top: 10px;
+  background: #ccc;
+}
+</style>
+</head>
+<body>
+
+<div id="points">Points: 0</div>
+<div id="level"></div>
+
+<div class="container">
+  <div id="game"></div>
+</div>
+
+<div id="visitors"></div>
+
+<script>
+let playerName = "";
+let current = 0;
+let points = 0;
+let answered = false;
+
+const game = document.getElementById("game");
+const pointsDisplay = document.getElementById("points");
+const levelDisplay = document.getElementById("level");
+
+/* Visitor Counter */
+let visitors = localStorage.getItem("visitors") || 0;
+visitors++;
+localStorage.setItem("visitors", visitors);
+document.getElementById("visitors").textContent = "Total visitors: " + visitors;
+
+/* Sounds */
+function playSound(type){
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = "sine";
+    o.frequency.value = type==="correct"?600:200;
+    g.gain.value = 0.2;
+    o.start();
+    setTimeout(()=>o.stop(),200);
+  } catch(e){}
+}
+
+/* Questions */
+const questions = [
+  // EASY
+  {q:"Choose the strongest password!",o:["password123","Cat!9$R2@k","abc"],a:1,d:"easy"},
+  {q:"Should you share your username with strangers?",o:["Yes","No","Only sometimes"],a:1,d:"easy"},
+  {q:"Is it safe to visit websites with a lock icon (https)?",o:["Yes","No","Only games"],a:0,d:"easy"},
+  
+  // MEDIUM
+  {q:"Can you spot the phishing email?",o:["Click link","Check sender","Send password"],a:1,d:"medium"},
+  {q:"What is 2FA?",o:["Two passwords","Extra security step","Fast internet"],a:1,d:"medium"},
+  {q:"Is public Wi-Fi always safe?",o:["Yes","No","Only at home"],a:1,d:"medium"},
+  
+  // HARD
+  {q:"Suspicious link in chat?",o:["Click","Ignore/report","Share"],a:1,d:"hard"},
+  {q:"If someone pretends to be your teacher asking password?",o:["Give it","Ignore","Tell adult"],a:2,d:"hard"},
+  {q:"Phone message says you won prize, click link?",o:["Click","Ignore","Reply info"],a:1,d:"hard"},
+];
+
+/* Helpers */
+function captain(text){
+  return `<div class="captain">
+    <div class="avatar">🦸‍♂️</div>
+    <div class="speech"><strong>Captain Cyber:</strong> ${text}</div>
+  </div>`;
+}
+
+function updatePoints(){ pointsDisplay.textContent="Points: "+points; }
+
+function updateLevel(){
+  let level = current<3?"Easy":current<6?"Intermediate":"Hard";
+  let num = (current%3)+1;
+  levelDisplay.textContent = `Level: ${level} (${num}/3)`;
+}
+
+/* Start Screen */
+function showNameInput(){
+  game.innerHTML = `
+  <div class="card">
+    <h1>Captain Cyber's Cyber Adventure</h1>
+    ${captain("Enter your name, young hero!")}
+    <input id="nameInput" placeholder="Your name...">
+    <button class="next" id="startBtn">Start Adventure</button>
+  </div>`;
+  
+  document.getElementById("startBtn").onclick=()=>{
+    const name=document.getElementById("nameInput").value.trim();
+    if(!name) return alert("Enter your name!");
+    playerName=name;
+    startGame();
+  };
+}
+
+function startGame(){
+  current=0; points=0;
+  updatePoints();
+  nextQ();
+}
+
+/* Question Render */
+function nextQ(){
+  answered=false;
+  if(current>=questions.length) return showResults();
+
+  const q=questions[current];
+  updateLevel();
+
+  const cls = q.d==="easy"?"easy":q.d==="medium"?"medium":"hard";
+
+  game.innerHTML = `
+  <div class="card ${cls}">
+    ${captain("Welcome, "+playerName+"!")}
+    <h2>${q.q}</h2>
+  </div>`;
+
+  const card = game.querySelector(".card");
+
+  q.o.forEach((opt,i)=>{
+    const btn=document.createElement("button");
+    btn.className="choice";
+    btn.textContent=opt;
+    btn.onclick=()=>answer(i===q.a);
+    card.appendChild(btn);
+  });
+}
+
+function answer(correct){
+  if(answered) return;
+  answered=true;
+
+  playSound(correct?"correct":"wrong");
+
+  if(correct) points+=10;
+  updatePoints();
+
+  const fb=document.createElement("div");
+  fb.className="feedback";
+  fb.textContent = correct?"Correct! 🎉":"Oops! Try to remember the safety tip!";
+  
+  const btn=document.createElement("button");
+  btn.className="next";
+  btn.textContent="Next Question";
+  btn.onclick=()=>{current++; nextQ();};
+
+  game.querySelector(".card").appendChild(fb);
+  game.querySelector(".card").appendChild(btn);
+}
+
+/* Leaderboard */
+function saveScore(){
+  let board = JSON.parse(localStorage.getItem("leaderboard")||"[]");
+  board.push({name:playerName,score:points,date:new Date().toLocaleString()});
+  board.sort((a,b)=>b.score-a.score);
+  board = board.slice(0,5);
+  localStorage.setItem("leaderboard",JSON.stringify(board));
+}
+
+function renderLeaderboard(){
+  const board = JSON.parse(localStorage.getItem("leaderboard")||"[]");
+  let html="<h3>Leaderboard</h3><table><tr><th>Name</th><th>Score</th><th>Date</th></tr>";
+  board.forEach(e=>{
+    html+=`<tr><td>${e.name}</td><td>${e.score}</td><td>${e.date}</td></tr>`;
+  });
+  html+="</table>";
+  html+=`<button class="clear-btn" onclick="clearBoard()">Clear Leaderboard</button>`;
+  return html;
+}
+
+function clearBoard(){
+  localStorage.removeItem("leaderboard");
+  showResults();
+}
+
+/* Results */
+function showResults(){
+  saveScore();
+
+  game.innerHTML = `
+  <div class="card">
+    ${captain("Great job, "+playerName+"!")}
+    <h2>Your Score: ${points} / 90</h2>
+    <button class="play-again" onclick="showNameInput()">Play Again</button>
+    ${renderLeaderboard()}
+  </div>`;
+}
+
+/* Init */
+showNameInput();
+</script>
+
+</body>
+</html>
